@@ -14,13 +14,21 @@ const FORM_ENDPOINTS = {
 const SITE = 'Cámara de Comercio Lara';
 
 // Framer's form template left generic input names ("Phone Number" holds the RIF), and
-// those names are what Formspree shows. Inputs are matched by their unique placeholder.
-// placeholder -> [name, type]
+// those names are what Formspree shows. Inputs are matched by their unique placeholder
+// (Framer's original, or the replacement once patched).
+// placeholder -> [name, type, new placeholder?]
 const FORM_FIELDS = {
-  'Victoria Contreras': ['Nombre comercial', 'text'],
+  // afiliarse
+  'Victoria Contreras': ['Nombre comercial', 'text', 'Inversiones Lara C.A.'],
   '+58 4121234567': ['Teléfono', 'tel'],
   'J-123456789': ['RIF', 'text'],
+  // contactanos ("Juan Pérez" is the tablet variant of the same input)
+  'Ej. Juan Pérez': ['Nombre', 'text'],
+  'Juan Pérez': ['Nombre', 'text'],
+  'Ej. +58 412-123-4567': ['Teléfono', 'tel'],
 };
+const fieldPatterns = () => Object.entries(FORM_FIELDS).map(([ph, [name, type, newPh = ph]]) =>
+  ({ phs: [...new Set([ph, newPh])], name, type, newPh }));
 
 // page file -> [public path, title, description]
 const PAGES = {
@@ -80,18 +88,23 @@ function patchHtml(html, [route, title, desc]) {
   ].join('\n');
   html = html.replace(/(<meta property="og:type"[^>]*>)/, `$1\n${head}`);
 
-  for (const [placeholder, [name, type]] of Object.entries(FORM_FIELDS)) {
-    html = html.replace(new RegExp(`<input [^>]*placeholder="${reEsc(esc(placeholder))}"[^>]*>`, 'g'), tag => tag
-      .replace(/ name="[^"]*"/, ` name="${esc(name)}"`).replace(/ type="[^"]*"/, ` type="${type}"`));
+  for (const { phs, name, type, newPh } of fieldPatterns()) {
+    const ph = phs.map(p => reEsc(esc(p))).join('|');
+    html = html.replace(new RegExp(`<input [^>]*placeholder="(?:${ph})"[^>]*>`, 'g'), tag => tag
+      .replace(/ name="[^"]*"/, ` name="${esc(name)}"`).replace(/ type="[^"]*"/, ` type="${type}"`)
+      .replace(/ placeholder="[^"]*"/, ` placeholder="${esc(newPh)}"`));
   }
   return html;
 }
 
 function patchFormFields(js) {
-  for (const [placeholder, [name, type]] of Object.entries(FORM_FIELDS)) {
-    js = js.replace(
-      new RegExp('inputName:`[^`]*`,placeholder:`' + reEsc(placeholder) + '`,required:!0,type:`[^`]*`', 'g'),
-      `inputName:\`${name}\`,placeholder:\`${placeholder}\`,required:!0,type:\`${type}\``);
+  for (const { phs, name, type, newPh } of fieldPatterns()) {
+    const ph = phs.map(reEsc).join('|');
+    js = js
+      .replace(new RegExp('inputName:`[^`]*`,placeholder:`(?:' + ph + ')`,required:!0,type:`[^`]*`', 'g'),
+        `inputName:\`${name}\`,placeholder:\`${newPh}\`,required:!0,type:\`${type}\``)
+      // breakpoint variants override only the placeholder
+      .replace(new RegExp('placeholder:`(?:' + ph + ')`\\}', 'g'), `placeholder:\`${newPh}\`}`);
   }
   return js;
 }
@@ -146,9 +159,8 @@ for (const site of await fs.readdir(sitesDir)) {
   }
   for (const name of names.filter(n => n.endsWith('.mjs'))) {
     const js = await fs.readFile(path.join(dir, name), 'utf8');
-    if (Object.keys(FORM_FIELDS).some(p => js.includes('placeholder:`' + p + '`'))) {
-      await patchFile(name, patchFormFields, 'inputName:`' + Object.values(FORM_FIELDS)[0][0] + '`');
-    }
+    const field = fieldPatterns().find(f => f.phs.some(p => js.includes('inputName:`') && js.includes('placeholder:`' + p + '`,required')));
+    if (field) await patchFile(name, patchFormFields, `inputName:\`${field.name}\`,placeholder:\`${field.newPh}\``);
   }
   for (const name of names.filter(n => /^script_main\..*\.mjs$/.test(n))) {
     await patchFile(name, js => js.replace(

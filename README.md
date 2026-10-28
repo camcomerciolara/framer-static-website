@@ -64,8 +64,9 @@ node tools/postprocess.mjs out
   formulario de Formspree por ruta (*Afiliarse* tiene el suyo; el resto usa el de `""`). Los campos
   trampa (honeypot) se descartan y los envíos de bots no se mandan. El asunto del correo es
   `Formulario web: <título de la página>`;
-- `FORM_FIELDS` corrige los nombres de campo genéricos de la plantilla de Framer (en *Afiliarse*:
-  `Nombre comercial`, `Teléfono`, `RIF`), que son los que aparecen en Formspree.
+- `FORM_FIELDS` corrige los nombres de campo genéricos de la plantilla de Framer, que son los
+  que aparecen en Formspree (*Afiliarse*: `Nombre comercial`, `Teléfono`, `RIF`; *Contáctanos*:
+  `Nombre`, `Teléfono`), y opcionalmente su placeholder.
 
 Para cambiar dominio, endpoint o textos, editar las constantes al inicio del script y volver a ejecutarlo.
 
