@@ -4,7 +4,7 @@ Copia estática (HTML + CSS + JS) del sitio publicado en Framer:
 https://camaradecomerciolara.framer.website/
 
 Todo se sirve desde este repo: páginas, imágenes, fuentes, módulos JS e íconos.
-La única dependencia externa es el mapa de Google embebido en *Contáctanos*.
+Las únicas dependencias externas son Formspree (formularios) y el mapa de Google en *Contáctanos*.
 
 ## Estructura
 
@@ -23,15 +23,23 @@ La única dependencia externa es el mapa de Google embebido en *Contáctanos*.
 - `assets/editorbar-stub.mjs` — reemplazo vacío de la barra de edición de Framer
 - `tools/` — script usado para generar la copia (`mirror.mjs`) y servidor local de prueba
 
-## Despliegue
+## Despliegue (GitHub Pages)
 
-Las rutas de assets son **absolutas desde la raíz** (`/assets/...`), así que el sitio debe
-servirse en la raíz de un dominio:
+Se publica desde la rama `main`, carpeta raíz (Settings → Pages → *Deploy from a branch*),
+con dominio propio **camcomerciolara.org.ve** (archivo `CNAME`). `.nojekyll` evita que Jekyll
+procese los archivos, y GitHub Pages sirve `/nosotros` → `nosotros.html` automáticamente.
 
-- **Cloudflare Pages** (recomendado): conectar el repo, sin comando de build, directorio de salida `/`.
-  Sirve `/nosotros` → `nosotros.html` automáticamente.
-- **GitHub Pages**: funciona solo con dominio propio (p. ej. `www.cclara.org`), no en
-  `camcomerciolara.github.io/framer-static-website/`.
+Las rutas de assets son **absolutas desde la raíz** (`/assets/...`), por eso el sitio necesita
+el dominio propio: no funciona en `camcomerciolara.github.io/framer-static-website/`.
+
+DNS en el proveedor del dominio:
+
+| Tipo  | Nombre | Valor                                                              |
+|-------|--------|--------------------------------------------------------------------|
+| A     | `@`    | `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153` |
+| CNAME | `www`  | `camcomerciolara.github.io`                                        |
+
+Cuando el certificado esté emitido, activar *Enforce HTTPS* en Settings → Pages.
 
 ## Probar localmente
 
@@ -44,13 +52,20 @@ python3 tools/serve.py "$PWD"   # http://127.0.0.1:8080
 ```bash
 EXTRA=tools/extra-urls.txt node tools/mirror.mjs https://camaradecomerciolara.framer.website out \
   "" nosotros afiliarse recursos contactanos log-in/registrarse
+node tools/postprocess.mjs out
 ```
 
-## Pendientes conocidos
+`tools/postprocess.mjs` aplica los ajustes propios del sitio y se puede ejecutar varias veces:
 
-- **Formularios** (Contáctanos, Afiliarse, Registrarse): en el sitio de Framer tampoco tienen
-  destino configurado, así que no envían datos. Hace falta conectarlos a un backend
-  (Cloudflare Worker, Formspree, o la API del SAC).
-- Las etiquetas `canonical` / `og:url` siguen apuntando a `camaradecomerciolara.framer.website`;
-  actualizarlas cuando exista el dominio definitivo.
+- dominio en `canonical` / `og:url`, títulos y descripciones por página, favicon e imagen para redes;
+- `CNAME`, `robots.txt` y `sitemap.xml`;
+- **formularios**: los formularios de Framer no tienen destino, así que el script parchea el runtime
+  (`assets/fu/sites/*/framer.*.mjs`) para enviarlos a Formspree (`FORM_ENDPOINT`). Los campos
+  trampa (honeypot) se descartan y los envíos de bots no se mandan. El asunto del correo es
+  `Formulario web: <título de la página>`.
+
+Para cambiar dominio, endpoint o textos, editar las constantes al inicio del script y volver a ejecutarlo.
+
+## Notas
+
 - Se eliminó el script de analítica de Framer (`events.framer.com`).

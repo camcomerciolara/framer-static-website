@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://camcomerciolara.org.ve/sitemap.xml
