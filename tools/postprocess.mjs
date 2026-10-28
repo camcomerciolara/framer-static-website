@@ -6,8 +6,21 @@ import path from 'node:path';
 const root = process.argv[2] || '.';
 const DOMAIN = 'camcomerciolara.org.ve';
 const ORIGIN = 'https://' + DOMAIN;
-const FORM_ENDPOINT = 'https://formspree.io/f/xaeejrnl';
+// Formspree endpoint by route; "" is the default for every other form
+const FORM_ENDPOINTS = {
+  '': 'https://formspree.io/f/xaeejrnl',
+  '/afiliarse': 'https://formspree.io/f/mvkkrezz',
+};
 const SITE = 'Cámara de Comercio Lara';
+
+// Framer's form template left generic input names ("Phone Number" holds the RIF), and
+// those names are what Formspree shows. Inputs are matched by their unique placeholder.
+// placeholder -> [name, type]
+const FORM_FIELDS = {
+  'Victoria Contreras': ['Nombre comercial', 'text'],
+  '+58 4121234567': ['Teléfono', 'tel'],
+  'J-123456789': ['RIF', 'text'],
+};
 
 // page file -> [public path, title, description]
 const PAGES = {
@@ -40,6 +53,7 @@ function removeElementById(html, id) {
 }
 
 const esc = s => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function patchHtml(html, [route, title, desc]) {
   const url = ORIGIN + route;
@@ -61,22 +75,40 @@ function patchHtml(html, [route, title, desc]) {
     `<meta name="twitter:image" content="${ORIGIN}/assets/og-image.png">`,
     `<meta property="og:site_name" content="${SITE}">`,
     '<meta property="og:locale" content="es_VE">',
-    `<script>window.CCL_FORM_ENDPOINT=${JSON.stringify(FORM_ENDPOINT)}</script>`,
+    `<script>window.CCL_FORMS=${JSON.stringify(FORM_ENDPOINTS)}</script>`,
     '<!-- /ccl:head -->',
   ].join('\n');
-  return html.replace(/(<meta property="og:type"[^>]*>)/, `$1\n${head}`);
+  html = html.replace(/(<meta property="og:type"[^>]*>)/, `$1\n${head}`);
+
+  for (const [placeholder, [name, type]] of Object.entries(FORM_FIELDS)) {
+    html = html.replace(new RegExp(`<input [^>]*placeholder="${reEsc(esc(placeholder))}"[^>]*>`, 'g'), tag => tag
+      .replace(/ name="[^"]*"/, ` name="${esc(name)}"`).replace(/ type="[^"]*"/, ` type="${type}"`));
+  }
+  return html;
 }
 
-// Framer forms on this site have no `action`, so submit is a no-op. Fall back to
-// window.CCL_FORM_ENDPOINT and post plain FormData there (no Framer proof-of-work).
+function patchFormFields(js) {
+  for (const [placeholder, [name, type]] of Object.entries(FORM_FIELDS)) {
+    js = js.replace(
+      new RegExp('inputName:`[^`]*`,placeholder:`' + reEsc(placeholder) + '`,required:!0,type:`[^`]*`', 'g'),
+      `inputName:\`${name}\`,placeholder:\`${placeholder}\`,required:!0,type:\`${type}\``);
+  }
+  return js;
+}
+
+// Framer forms on this site have no `action`, so submit is a no-op. Fall back to the
+// endpoint for the current route (window.CCL_FORMS, looked up at submit time because
+// client-side navigation keeps the first page's globals) and post plain FormData
+// there (no Framer proof-of-work).
 function patchFramerRuntime(js) {
   const guard = 'if(!e||!D||k.current)return;';
-  if (js.includes(guard)) js = js.replace(guard, 'if(e||(e=globalThis.CCL_FORM_ENDPOINT),!e||k.current)return;');
+  if (js.includes(guard)) js = js.replace(guard,
+    'if(e||(e=globalThis.CCL_FORMS?.[location.pathname.replace(/\\.html$/,``)]||globalThis.CCL_FORMS?.[``]),!e||k.current)return;');
   const submit = 'async function _f(e,t,n,r){';
-  if (js.includes(submit) && !js.includes('CCL_FORM_ENDPOINT){')) {
+  if (js.includes(submit) && !js.includes('formspree')) {
     js = js.replace(submit, submit +
       // honeypot filled (__framer_2 = filled count) -> pretend success, send nothing
-      'if(e===globalThis.CCL_FORM_ENDPOINT){if(+t.get(`__framer_2`)>0)return{ok:!0};' +
+      'if(/^https:\\/\\/formspree\\.io\\//.test(e)){if(+t.get(`__framer_2`)>0)return{ok:!0};' +
       'for(let k of[...t.keys()])k.startsWith(`__framer`)&&t.delete(k);' +
       't.set(`_subject`,`Formulario web: `+document.title);t.set(`_pagina`,location.href);' +
       'let o=await fetch(e,{body:t,method:`POST`,headers:{Accept:`application/json`}});' +
@@ -110,7 +142,13 @@ for (const site of await fs.readdir(sitesDir)) {
     if (after !== before) await fs.writeFile(f, after);
   };
   for (const name of names.filter(n => /^framer\..*\.mjs$/.test(n))) {
-    await patchFile(name, patchFramerRuntime, 'CCL_FORM_ENDPOINT');
+    await patchFile(name, patchFramerRuntime, 'CCL_FORMS');
+  }
+  for (const name of names.filter(n => n.endsWith('.mjs'))) {
+    const js = await fs.readFile(path.join(dir, name), 'utf8');
+    if (Object.keys(FORM_FIELDS).some(p => js.includes('placeholder:`' + p + '`'))) {
+      await patchFile(name, patchFormFields, 'inputName:`' + Object.values(FORM_FIELDS)[0][0] + '`');
+    }
   }
   for (const name of names.filter(n => /^script_main\..*\.mjs$/.test(n))) {
     await patchFile(name, js => js.replace(

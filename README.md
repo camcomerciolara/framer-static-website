@@ -60,9 +60,12 @@ node tools/postprocess.mjs out
 - dominio en `canonical` / `og:url`, títulos y descripciones por página, favicon e imagen para redes;
 - `CNAME`, `robots.txt` y `sitemap.xml`;
 - **formularios**: los formularios de Framer no tienen destino, así que el script parchea el runtime
-  (`assets/fu/sites/*/framer.*.mjs`) para enviarlos a Formspree (`FORM_ENDPOINT`). Los campos
+  (`assets/fu/sites/*/framer.*.mjs`) para enviarlos a Formspree. `FORM_ENDPOINTS` define el
+  formulario de Formspree por ruta (*Afiliarse* tiene el suyo; el resto usa el de `""`). Los campos
   trampa (honeypot) se descartan y los envíos de bots no se mandan. El asunto del correo es
-  `Formulario web: <título de la página>`.
+  `Formulario web: <título de la página>`;
+- `FORM_FIELDS` corrige los nombres de campo genéricos de la plantilla de Framer (en *Afiliarse*:
+  `Nombre comercial`, `Teléfono`, `RIF`), que son los que aparecen en Formspree.
 
 Para cambiar dominio, endpoint o textos, editar las constantes al inicio del script y volver a ejecutarlo.
 
