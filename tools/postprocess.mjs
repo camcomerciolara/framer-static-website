@@ -25,6 +25,20 @@ const PAGES = {
     'Regístrate en la Cámara de Comercio del Estado Lara.'],
 };
 
+// Remove an element (by id) with all its children; Framer's markup has no unclosed <div>s.
+function removeElementById(html, id) {
+  const start = html.indexOf(`<div id="${id}"`);
+  if (start < 0) return html;
+  const tag = /<\/?div\b[^>]*>/g;
+  tag.lastIndex = start;
+  let depth = 0, m;
+  while ((m = tag.exec(html))) {
+    depth += m[0][1] === '/' ? -1 : 1;
+    if (depth === 0) return html.slice(0, start) + html.slice(tag.lastIndex);
+  }
+  throw new Error('unbalanced <div id="' + id + '">');
+}
+
 const esc = s => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
 function patchHtml(html, [route, title, desc]) {
@@ -34,6 +48,9 @@ function patchHtml(html, [route, title, desc]) {
     .replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`)
     .replace(/(<meta (?:name|property)="(?:og:|twitter:)?title" content=")[^"]*"/g, `$1${esc(title)}"`)
     .replace(/(<meta (?:name|property)="(?:og:|twitter:)?description" content=")[^"]*"/g, `$1${esc(desc)}"`);
+
+  // "Made in Framer" badge: its own React root, hydrated from script_main (patched below)
+  html = removeElementById(html, '__framer-badge-container');
 
   // icons, og:image and form endpoint: inject once, right after og:type
   html = html.replace(/\n?<!-- ccl:head -->[\s\S]*?<!-- \/ccl:head -->/, '');
@@ -94,6 +111,11 @@ for (const site of await fs.readdir(sitesDir)) {
   };
   for (const name of names.filter(n => /^framer\..*\.mjs$/.test(n))) {
     await patchFile(name, patchFramerRuntime, 'CCL_FORM_ENDPOINT');
+  }
+  for (const name of names.filter(n => /^script_main\..*\.mjs$/.test(n))) {
+    await patchFile(name, js => js.replace(
+      /Z&&i\(\(\)=>\{v\(document\.getElementById\(`__framer-badge-container`\),[^;]*?import\(`[^`]*`\)\)\)\)\)\}\)/,
+      'void 0/*ccl:no-badge*/'), 'ccl:no-badge');
   }
   // page metadata modules import shared-lib's metadata helper; the page HTML that
   // preloads one tells us which route it belongs to
