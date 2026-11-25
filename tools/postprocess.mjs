@@ -46,6 +46,9 @@ const PAGES = {
     'Regístrate en la Cámara de Comercio del Estado Lara.'],
 };
 
+// Hand-written pages (not from Framer): only listed in the sitemap, never rewritten here
+const STATIC_PAGES = ['/privacidad', '/terminos'];
+
 // Remove an element (by id) with all its children; Framer's markup has no unclosed <div>s.
 function removeElementById(html, id) {
   const start = html.indexOf(`<div id="${id}"`);
@@ -185,6 +188,6 @@ await fs.writeFile(path.join(root, 'CNAME'), DOMAIN + '\n');
 await fs.writeFile(path.join(root, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${ORIGIN}/sitemap.xml\n`);
 await fs.writeFile(path.join(root, 'sitemap.xml'),
   '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-  Object.values(PAGES).map(([r]) => `  <url><loc>${ORIGIN}${r}</loc></url>\n`).join('') +
+  [...Object.values(PAGES).map(([r]) => r), ...STATIC_PAGES].map((r) => `  <url><loc>${ORIGIN}${r}</loc></url>\n`).join('') +
   '</urlset>\n');
 console.log('postprocess ok');
