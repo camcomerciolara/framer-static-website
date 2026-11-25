@@ -16,10 +16,16 @@ Las únicas dependencias externas son Formspree (formularios) y el mapa de Googl
 | `/recursos`             | `recursos.html`             |
 | `/contactanos`          | `contactanos.html`          |
 | `/log-in/registrarse`   | `log-in/registrarse.html`   |
+| `/privacidad`           | `privacidad.html`           |
+| `/terminos`             | `terminos.html`             |
 
 - `assets/fu/` — contenido de `framerusercontent.com` (imágenes, fuentes, bundles `.mjs`)
 - `assets/gfonts/` — fuentes de Google
 - `assets/fm/` — módulos de íconos (Phosphor, Material, Feather, Hero)
+- `privacidad.html` y `terminos.html` — política de privacidad y términos de uso de la app
+  *CCE Lara Afiliado* (URL para Google Play, App Store y `termsUrl` de la app). Escritas a mano, no
+  vienen de Framer: `postprocess.mjs` solo las agrega al sitemap (`STATIC_PAGES`). Estilos en
+  `assets/legal.css`. Al cambiarlas, subir la versión y la fecha del encabezado.
 - `assets/editorbar-stub.mjs` — reemplazo vacío de la barra de edición de Framer
 - `tools/` — script usado para generar la copia (`mirror.mjs`) y servidor local de prueba
 
